@@ -29,10 +29,8 @@ RUN mkdir -p ${CATALINA_HOME} && \
     rm -rf ${CATALINA_HOME}/webapps/*
 
 WORKDIR $CATALINA_HOME/bin
-RUN tar -xvzf commons-daemon-native.tar.gz
-
-RUN export COMMONS_DAEMON_DIR=$CATALINA_HOME/bin/$(ls $CATALINA_HOME/bin | grep commons-daemon | grep native-src) && \
-    cd ${COMMONS_DAEMON_DIR}/unix && \
+RUN tar -xvzf commons-daemon-native.tar.gz && \
+    cd $(ls | grep commons-daemon | grep native-src)/unix && \
     ./configure && \
     make && \
     cp jsvc $CATALINA_HOME/bin
