@@ -1,45 +1,50 @@
 FROM oraclelinux:8-slim AS build
 LABEL OWNER="OXXO"
 
-ENV JDK_INSTALLER "jdk-17_linux-x64_bin.tar.gz"
-ENV TOMCAT_INSTALLER "apache-tomcat-10.1.11.tar.gz"
-ENV JAVA_HOME "/opt/jdk-17.0.8"
-ENV CATALINA_HOME "/opt/apache-tomcat-10.1.11"
-ENV CATALINA_BASE ${CATALINA_HOME}
-ENV PATH "$PATH:/${JAVA_HOME}/bin"
-ENV COMMONS_DAEMON_VERSION 1.3.4
+ARG JDK_INSTALLER
+ARG TOMCAT_INSTALLER
 
-COPY bin/${JDK_INSTALLER} /opt
-COPY bin/${TOMCAT_INSTALLER} /opt
-RUN microdnf update -y && \
-    microdnf upgrade -y && \
-    microdnf install gzip gcc make -y
+ENV JDK_INSTALLER ${JDK_INSTALLER}
+ENV TOMCAT_INSTALLER ${TOMCAT_INSTALLER}
+ENV JAVA_HOME "/opt/jdk-17"
+ENV CATALINA_HOME "/opt/apache-tomcat-10"
+ENV CATALINA_BASE ${CATALINA_HOME}
+ENV PATH "$PATH:${JAVA_HOME}/bin"
+
+COPY bin/${JDK_INSTALLER} /tmp
+COPY bin/${TOMCAT_INSTALLER} /tmp
+RUN microdnf install gzip gcc make -y
+
+WORKDIR /tmp
+RUN tar -xvzf ${JDK_INSTALLER} && \
+  rm -rf ${JDK_INSTALLER}
+RUN tar -xvzf /tmp/${TOMCAT_INSTALLER} && \
+  rm -rf ${TOMCAT_INSTALLER}
 
 WORKDIR /opt
-RUN tar -xvzf ${JDK_INSTALLER} && \
-    rm -rf ${JDK_INSTALLER}
-RUN tar -xvzf ${TOMCAT_INSTALLER} && \
-    rm -rf ${TOMCAT_INSTALLER}
+RUN mkdir -p ${JAVA_HOME} && \
+    mv /tmp/$(ls /tmp | grep jdk-17)/* ${JAVA_HOME}
+RUN mkdir -p ${CATALINA_HOME} && \
+    mv /tmp/$(ls /tmp | grep apache-tomcat-10)/* ${CATALINA_HOME} && \
+    rm -rf ${CATALINA_HOME}/webapps/*
 
 WORKDIR $CATALINA_HOME/bin
-RUN tar -xvzf commons-daemon-native.tar.gz & \
-    rm -rf $CATALINA_HOME/webapps/*
+RUN tar -xvzf commons-daemon-native.tar.gz
 
-WORKDIR $CATALINA_HOME/bin/commons-daemon-${COMMONS_DAEMON_VERSION}-native-src/unix
-RUN ./configure && \
+RUN export COMMONS_DAEMON_DIR=$CATALINA_HOME/bin/$(ls $CATALINA_HOME/bin | grep commons-daemon | grep native-src) && \
+    cd ${COMMONS_DAEMON_DIR}/unix && \
+    ./configure && \
     make && \
     cp jsvc $CATALINA_HOME/bin
 
-# CLEAN
-RUN microdnf remove gzip gcc make -y && \
-    microdnf clean all
-
-
+# Create main Image
 FROM oraclelinux:8-slim AS main
 LABEL OWNER="OXXO"
-ENV JAVA_HOME "/opt/jdk-17.0.8"
-ENV CATALINA_HOME "/opt/apache-tomcat-10.1.11"
+ENV JSVC_OPTS "-jvm server"
+ENV JAVA_HOME "/opt/jdk-17"
+ENV CATALINA_HOME "/opt/apache-tomcat-10"
 ENV CATALINA_BASE ${CATALINA_HOME}
+ENV PATH "$PATH:${JAVA_HOME}/bin"
 COPY --from=build /opt /opt
 EXPOSE 8080
 CMD $CATALINA_HOME/bin/daemon.sh run
