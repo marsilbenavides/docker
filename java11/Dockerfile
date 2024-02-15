@@ -19,7 +19,7 @@ RUN tar -xvzf ${JDK_INSTALLER} && \
      --add-modules ALL-MODULE-PATH
 
 # Create main Image
-FROM rockylinux:9.3 AS main
+FROM rockylinux:9.3-minimal AS main
 LABEL OWNER="OXXO"
 ENV JAVA_HOME "/opt/jdk-11-slim"
 ENV PATH "$PATH:${JAVA_HOME}/bin"
