@@ -1,2 +1,2 @@
-# Place in /bin directory:
-- jdk-8u401-linux-x64.tar.gz
+# Place in ./bin directory:
+- JDK_INSTALLER=jdk-8u431-linux-x64.tar.gz
