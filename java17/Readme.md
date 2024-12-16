@@ -1,2 +1,2 @@
 # Place in /bin directory:
-- jdk-17_linux-x64_bin.tar.gz
+- jdk-17.0.13_linux-x64_bin.tar.gz

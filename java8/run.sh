@@ -1,4 +1,4 @@
-#!/bin/bash
+#bin/bash
 docker run -it --rm \
-  --entrypoint=/bin/bash \
-  "oxxo-java-8:SNAPSHOT"
+  --entrypoint=/bin/sh\
+  "oxxo-java-8:slim"
