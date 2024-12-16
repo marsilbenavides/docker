@@ -45,6 +45,7 @@ LABEL OWNER="OXXO"
 ENV M2_HOME="/opt/apache-maven"
 ENV JAVA_HOME="/opt/jdk1.8"
 ENV JAVA17_HOME="/opt/jdk-17"
+ENV NODE_HOME="/opt/node22"
 
 # Copy git executable
 COPY --from=build /usr/local/bin/git /usr/local/bin/git
@@ -71,25 +72,24 @@ COPY --from=build /etc/ld.so.conf.d /etc/ld.so.conf.d
 COPY --from=build /etc/ld.so.cache /etc/ld.so.cache
 
 # Copy maven executable
-RUN mkdir ${M2_HOME}
 COPY --from=build ${M2_HOME} ${M2_HOME}
 ENV PATH="$PATH:${M2_HOME}/bin"
 
 # Copy jdk17 executable
-RUN mkdir ${JAVA17_HOME}
 COPY --from=oxxo-java-17:slim ${JAVA17_HOME} ${JAVA17_HOME}
 
 # Copy jdk8 executable (main java version)
-RUN mkdir ${JAVA_HOME}
 COPY --from=oxxo-java-8:slim ${JAVA_HOME} ${JAVA_HOME}
 ENV PATH="$PATH:${JAVA_HOME}/bin"
 
-# Create a new group and user
-RUN groupadd -r ngroup && useradd -r -g ngroup nucleo
+# Copy node executable
+COPY --from=node22:slim ${NODE_HOME} ${NODE_HOME}
+ENV PATH="$PATH:${NODE_HOME}/bin"
 
-# Switch to the new user
+# Configure user
+RUN groupadd -r ngroup && \
+  useradd -m -r -g ngroup nucleo && \
+  mkdir /home/nucleo/projects && \
+  chown nucleo:ngroup /home/nucleo/projects
 USER nucleo
-
-# Set the working directory
-WORKDIR /home/nucleo
-  
+WORKDIR /home/nucleo/projects
