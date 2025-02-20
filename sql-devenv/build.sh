@@ -1,5 +1,5 @@
 #/bin/bash
-docker rmi "sql-devenv:SNAPSHOT"
+docker rmi "sql-devenv:slim"
 docker build\
-  --tag "sql-devenv:SNAPSHOT"\
+  --tag "sql-devenv:slim"\
   .
