@@ -1,4 +1,4 @@
-#bin/bash
+#!/bin/bash
 docker rmi "oxxo-java-8-devenv:slim"
 docker build\
   --build-arg MVN_INSTALLER=apache-maven-3.9.9-bin.tar.gz\
