@@ -1,0 +1,19 @@
+#Usage: jdev_suite_121300_linux64.bin -silent -responseFile <this_file>
+[ENGINE]
+
+#DO NOT CHANGE THIS.
+Response File Version=1.0.0.0.0
+
+[GENERIC]
+#Set this to true if custom installation must be done, all other required variables need to be provided. If this is set to true then variable "TYPICAL_TYPE" must be set to false as the variables are mutually exclusive.
+INSTALL_TYPE=Typical
+
+#Set this to true if you wish to skip software updates
+DECLINE_AUTO_UPDATES=true
+
+#The oracle home location. This can be an existing Oracle Home or a new Oracle Home
+ORACLE_BASE=/home/oracle/middleware
+ORACLE_HOME=/home/oracle/middleware/product/12.1.3.0.0/dbhome_1
+
+#The federated oracle home locations. This should be an existing Oracle Home. Multiple values can be provided as comma seperated values
+FEDERATED_ORACLE_HOMES=
