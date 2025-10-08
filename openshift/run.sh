@@ -1,3 +1,3 @@
 #!/bin/bash
 docker run -it --rm\
-  "oxxo-java-17:slim"
+  "openshift:slim"
