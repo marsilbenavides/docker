@@ -7,7 +7,6 @@ docker rm "eap-controller"
 
 docker run -dit\
   --name "eap-controller"\
-  --cap-add ALL\
   -p 8088:8088\
   -p 8043:8043\
   -p 8843:8843\

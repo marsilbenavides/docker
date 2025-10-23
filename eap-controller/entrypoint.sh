@@ -10,5 +10,13 @@ if [ ! -e "$data_db_filename" ]; then
   echo "Restore complete."
 fi
 
-./bin/control.sh start
-sleep infinity
+cd /opt/tplink/EAPController/lib/
+java -server\
+  -XX:MaxHeapFreeRatio=60\
+  -XX:MinHeapFreeRatio=30\
+  -XX:+HeapDumpOnOutOfMemoryError\
+  -XX:HeapDumpPath=/opt/tplink/EAPController/logs/java_heapdump.hprof\
+  -Djava.awt.headless=true\
+  -Djdk.lang.Process.launchMechanism=vfork\
+  -cp /usr/share/java/commons-daemon.jar:/opt/tplink/EAPController/lib/*:/opt/tplink/EAPController/properties\
+  com.tplink.smb.omada.starter.OmadaLinuxMain start
