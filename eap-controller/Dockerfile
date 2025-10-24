@@ -34,9 +34,7 @@ RUN apt-get update &&\
   echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] http://repo.mongodb.org/apt/debian bookworm/mongodb-org/8.0 main" | \
       tee /etc/apt/sources.list.d/mongodb-org-8.0.list &&\
   apt-get update &&\
-  apt-get -y install mongodb-org &&\
-  addgroup --gid 1000 omadagrp &&\
-  adduser omada --disabled-password --uid 1000 --gid 1000 --shell /bin/bash --no-create-home --quiet --gecos ""
+  apt-get -y install mongodb-org
 
 # Repair install.sh and execute it
 WORKDIR /opt/omada-controller-installer
@@ -68,11 +66,17 @@ RUN mkdir -p /tmp/jdk-17-full &&\
      --add-modules ALL-MODULE-PATH
 
 FROM debian:bookworm-slim AS main
+ARG OMADA_UID
+ARG OMADA_GID
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=America/Mexico_City
 ENV JAVA_HOME=/opt/jdk-17
 ENV JRE_HOME=${JAVA_HOME}
 ENV PATH=${JAVA_HOME}/bin:$PATH
+ENV OMADA_USER=omada
+ENV OMADA_GROUP=omadagrp
+ENV OMADA_UID=1000
+ENV OMADA_GID=1000
 
 # Restore tplink
 VOLUME [ "/opt/tplink/EAPController/data" ]
@@ -82,21 +86,26 @@ COPY --from=installer /opt/tplink/              /opt/tplink
 COPY --from=installer /usr/share/java/          /usr/share/java/
 COPY --from=installer /usr/share/maven-repo/    /usr/share/maven-repo/
 
+# Copy mongo list
+COPY --from=installer /usr/share/keyrings/mongodb-server-8.0.gpg      /usr/share/keyrings/
+COPY --from=installer /etc/apt/sources.list.d/mongodb-org-8.0.list    /etc/apt/sources.list.d/mongodb-org-8.0.list
+
 # Install binaries
-RUN apt-get update &&\
-  apt-get -y install\
+COPY ./entrypoint.sh /opt/tplink/EAPController/entrypoint.sh
+RUN apt-get update
+RUN apt-get -y install\
     curl\
     procps\
     gnupg\
-    libwrap0 &&\
-  curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | \
-      gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg --dearmor &&\
-  echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] http://repo.mongodb.org/apt/debian bookworm/mongodb-org/8.0 main" | \
-      tee /etc/apt/sources.list.d/mongodb-org-8.0.list &&\
-  apt-get update &&\
-  apt-get -y install mongodb-org &&\
-  addgroup --gid 1000 omadagrp &&\
-  adduser omada --disabled-password --uid 1000 --gid 1000 --shell /bin/bash --no-create-home --quiet --gecos ""
+    libwrap0\
+    mongodb-org &&\
+  apt-get clean &&\
+  apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false &&\
+  rm -rf /var/lib/apt/lists/* &&\
+  addgroup --gid ${OMADA_GID} ${OMADA_GROUP} &&\
+  adduser ${OMADA_USER} --disabled-password --uid ${OMADA_UID} --gid ${OMADA_GID} --shell /bin/bash --no-create-home --quiet --gecos "" &&\
+  chown $OMADA_USER:$OMADA_GROUP -R /opt/tplink/ &&\
+  chmod +x /opt/tplink/EAPController/entrypoint.sh
 
 EXPOSE 8088
 EXPOSE 8043
@@ -104,7 +113,12 @@ EXPOSE 8843
 EXPOSE 27001
 EXPOSE 29810
 EXPOSE 29811
+EXPOSE 29812
+EXPOSE 29813
+EXPOSE 29814
+EXPOSE 29815
+EXPOSE 29816
 
 WORKDIR /opt/tplink/EAPController/
-COPY --chmod=777 ./entrypoint.sh /opt/tplink/EAPController/entrypoint.sh
+USER omada
 CMD ["./entrypoint.sh"]

@@ -12,6 +12,8 @@ fi
 
 cd /opt/tplink/EAPController/lib/
 java -server\
+  -Xms1024M\
+  -Xmx2048M\
   -XX:MaxHeapFreeRatio=60\
   -XX:MinHeapFreeRatio=30\
   -XX:+HeapDumpOnOutOfMemoryError\
