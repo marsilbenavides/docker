@@ -12,12 +12,6 @@ RUN mkdir /opt/omada-controller-installer &&\
   tar -xvzf /tmp/${EAP_INSTALLER} --directory /opt/omada-controller-installer --strip-components=1 &&\
   rm -rf /tmp/${EAP_INSTALLER}
 
-# Uncompress java
-COPY ./bin/${JDK17_INSTALLER} /tmp/${JDK17_INSTALLER}
-RUN mkdir -p ${JAVA_HOME} &&\
-  tar -xvzf /tmp/${JDK17_INSTALLER} --directory ${JAVA_HOME} --strip-components=1 &&\
-  rm -rf /tmp/${JDK17_INSTALLER}
-
 RUN apt-get update &&\
   apt-get -y install\
     openjdk-17-jre-headless\
@@ -33,7 +27,8 @@ RUN apt-get update &&\
     libnsl2\
     libtirpc-common\
     libtirpc3\
-    libwrap0 &&\
+    libwrap0\
+    binutils &&\
   curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | \
       gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg --dearmor &&\
   echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] http://repo.mongodb.org/apt/debian bookworm/mongodb-org/8.0 main" | \
@@ -56,6 +51,21 @@ RUN paramCheckStart=$(grep -n "# parameter check" ./install.sh | cut -d: -f1) &&
 WORKDIR /opt/tplink/EAPController
 RUN tar -czf ./data.tar.gz ./data &&\
   rm -rf ./data/*
+
+# Uncompress jdk to be used by main image
+COPY ./bin/${JDK17_INSTALLER} /tmp/${JDK17_INSTALLER}
+RUN mkdir -p /tmp/jdk-17-full &&\
+  tar -xvzf /tmp/${JDK17_INSTALLER} --directory /tmp/jdk-17-full --strip-components=1 &&\
+  rm -rf /tmp/${JDK17_INSTALLER} &&\
+  /tmp/jdk-17-full/bin/jlink\
+     --module-path /tmp/jdk-17-full/jmods\
+     --verbose\
+     --compress 2\
+     --strip-debug \
+     --no-man-pages \
+     --no-header-files \
+     --output ${JAVA_HOME}\
+     --add-modules ALL-MODULE-PATH
 
 FROM debian:bookworm-slim AS main
 ENV DEBIAN_FRONTEND=noninteractive
