@@ -17,9 +17,9 @@ if [ "$(docker ps -q -f name=$MOTIONEYE_CONTAINER_NAME)" ]; then
 fi
 
 docker run -dit \
-  --name "$MOTIONEYE_CONTAINER_NAME" \
-  -p 8765:8765 \
-  -v /etc/localtime:/etc/localtime:ro \
-  -v ~/motioneye/config:/etc/motioneye \
-  -v ~/motioneye/videos:/var/lib/motioneye \
+  --name "$MOTIONEYE_CONTAINER_NAME"\
+  --publish 8765:8765\
+  --volume /etc/localtime:/etc/localtime:ro\
+  --volume ~/motioneye/config:/etc/motioneye\
+  --volume ~/motioneye/videos:/var/lib/motioneye\
   "$MOTIONEYE_IMAGE_NAME"

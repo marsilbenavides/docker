@@ -35,6 +35,7 @@ fi
   echo "Building motionEye Docker image..."
   cd "$MOTIONEYE_DIR"
   docker build\
+    --network host\
     --build-arg="RUN_UID=$(id -u ${RUN_USER:-$(whoami)})"\
     --build-arg="RUN_GID=$(id -g ${RUN_USER:-$(whoami)})"\
     --tag "$MOTIONEYE_IMAGE_NAME"\
