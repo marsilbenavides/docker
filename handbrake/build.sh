@@ -5,7 +5,7 @@
 
 # Build the binary
 docker build\
-  --file handbrake/Dockerfile.ollama\  
+  --file ./Dockerfile\
   --build-arg HANDBRAKE_GIT_URL=https://github.com/HandBrake/HandBrake.git\
   -t handbrake:latest\
   .
