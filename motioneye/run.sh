@@ -10,7 +10,7 @@ echo "Preparing local directories..."
 mkdir -p ~/motioneye/{config,videos}
 
 # Stop and remove any existing motionEye container
-if [ "$(docker ps -q -f name=$MOTIONEYE_CONTAINER_NAME)" ]; then
+if [ "$(docker ps -qa -f name=$MOTIONEYE_CONTAINER_NAME)" ]; then
   echo "Stopping existing $MOTIONEYE_CONTAINER_NAME container..."
   docker stop "$MOTIONEYE_CONTAINER_NAME"
   docker rm "$MOTIONEYE_CONTAINER_NAME"
