@@ -22,4 +22,5 @@ docker run -dit \
   --volume /etc/localtime:/etc/localtime:ro\
   --volume ~/motioneye/config:/etc/motioneye\
   --volume ~/motioneye/videos:/var/lib/motioneye\
+  --restart always\
   "$MOTIONEYE_IMAGE_NAME"
