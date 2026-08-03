@@ -3,6 +3,7 @@
 set -euo pipefail
 
 MOTIONEYE_DIR="/tmp/motioneye_git/"
+MOTIONEYE_IMAGE_NAME="motioneye-img"
 
 if [ ! -d "$MOTIONEYE_DIR" ]; then
   echo "Cloning motionEye repository..."
@@ -36,6 +37,6 @@ fi
   docker build\
     --build-arg="RUN_UID=$(id -u ${RUN_USER:-$(whoami)})"\
     --build-arg="RUN_GID=$(id -g ${RUN_USER:-$(whoami)})"\
-    --tag "motioneye-img"\
+    --tag "$MOTIONEYE_IMAGE_NAME"\
     --file ./docker/Dockerfile .
 )
