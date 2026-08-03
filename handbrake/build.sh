@@ -5,9 +5,10 @@
 
 # Build the binary
 docker build\
-    --build-arg HANDBRAKE_GIT_URL=https://github.com/HandBrake/HandBrake.git\
-    -t handbrake:latest\
-    .
+  --file handbrake/Dockerfile.ollama\  
+  --build-arg HANDBRAKE_GIT_URL=https://github.com/HandBrake/HandBrake.git\
+  -t handbrake:latest\
+  .
 
 # Extract the ghb binary
 docker cp $(docker create handbrake:latest):/tmp/handbrake/build/gtk/src/ghb ./

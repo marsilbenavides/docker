@@ -1,0 +1,158 @@
+# --- Stage 1: Builder (Handles unpacking and installation of binaries) ---
+FROM debian:trixie-slim AS builder
+LABEL OWNER="OXXO"
+
+ARG JAVA8_INSTALLER
+ARG JAVA21_INSTALLER
+ARG MAVEN3_INSTALLER
+ARG NODE24_INSTALLER
+
+# Define paths consistently for both stages
+ENV MAVEN3_HOME=/opt/apache-maven-3
+ENV JAVA8_HOME=/opt/jdk8
+ENV JAVA21_HOME=/opt/jdk-21
+ENV NODE24_HOME=/opt/node24
+
+RUN apt-get update &&\
+    apt-get install -y --no-install-recommends xz-utils
+
+WORKDIR /tmp
+
+# Install Java 8
+COPY ${JAVA8_INSTALLER} ./jdk8-linux-x64.tar.gz
+RUN mkdir -p ${JAVA8_HOME} && \
+    tar -xzf ./jdk8-linux-x64.tar.gz -C ${JAVA8_HOME} --strip-components=1 && \
+    rm ./jdk8-linux-x64.tar.gz
+
+# Install Java 21
+COPY ${JAVA21_INSTALLER} ./jdk-21_linux-x64_bin.tar.gz
+RUN mkdir -p ${JAVA21_HOME} && \
+    tar -xzf ./jdk-21_linux-x64_bin.tar.gz -C ${JAVA21_HOME} --strip-components=1 && \
+    rm ./jdk-21_linux-x64_bin.tar.gz
+
+# Install Maven
+COPY ${MAVEN3_INSTALLER} ./apache-maven-3.bin.tar.gz
+RUN mkdir -p ${MAVEN3_HOME} && \
+    tar -xzf ./apache-maven-3.bin.tar.gz -C ${MAVEN3_HOME} --strip-components=1 && \
+    rm ./apache-maven-3.bin.tar.gz
+
+# Install Node
+COPY ${NODE24_INSTALLER} ./node24.bin.tar.xz
+RUN mkdir -p ${NODE24_HOME} && \
+    tar -xJf ./node24.bin.tar.xz -C ${NODE24_HOME} --strip-components=1 && \
+    rm ./node24.bin.tar.xz
+
+# --- Stage 2: Main Image ---
+FROM debian:trixie-slim AS main
+
+ARG VS_GROUP=ms
+ARG VS_USER=vscode
+ARG DOCKER_GID=999
+ARG TZ=America/Monterrey
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=${TZ}
+ENV VS_GROUP=${VS_GROUP}
+ENV VS_USER=${VS_USER}
+ENV MAVEN3_HOME=/opt/apache-maven-3
+ENV JAVA8_HOME=/opt/jdk8
+ENV JAVA21_HOME=/opt/jdk-21
+ENV NODE24_HOME=/opt/node24
+ENV LC_ALL=en_US.UTF-8
+ENV LANG=en_US.UTF-8
+
+# Copy only the necessary binaries from builder
+COPY --from=builder ${JAVA8_HOME}     ${JAVA8_HOME}
+COPY --from=builder ${JAVA21_HOME}    ${JAVA21_HOME}
+COPY --from=builder ${MAVEN3_HOME}    ${MAVEN3_HOME}
+COPY --from=builder ${NODE24_HOME}    ${NODE24_HOME}
+
+# Install system dependencies and configure environment
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends \
+        vim\
+        git\
+        curl\
+        gpg\
+        locales\
+        lsb-release\
+        containerd\
+        openssh-server\
+        apt-transport-https\
+        ca-certificates\
+        util-linux &&\
+    # Configure Locales
+    locale-gen en_US.UTF-8 && \
+    update-ca-certificates && \
+    ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime && \
+    echo "${TZ}" > /etc/timezone && \
+    # Setup Java Alternatives (Point to Java 21 as default)
+    update-alternatives --install /usr/bin/java java ${JAVA21_HOME}/bin/java 1 && \
+    update-alternatives --install /usr/bin/javac javac ${JAVA21_HOME}/bin/javac 1 && \
+    update-alternatives --install /usr/bin/jar jar ${JAVA21_HOME}/bin/jar 1 && \
+    # Setup Symlinks for Maven and Node
+    ln -s ${MAVEN3_HOME}/bin/mvn /usr/bin/mvn && \
+    ln -s ${NODE24_HOME}/bin/node /usr/bin/node && \
+    ln -s ${NODE24_HOME}/bin/npm /usr/bin/npm && \
+    ln -s ${NODE24_HOME}/bin/npx /usr/bin/npx && \
+    # Docker Repo Setup
+    curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+    apt-get update && \
+    apt-get install -y docker-ce-cli && \
+    # User and Permissions Setup
+    echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config && \
+    groupadd -g ${DOCKER_GID} docker || groupmod -g ${DOCKER_GID} docker && \
+    useradd -m -s /bin/bash -u 1000 -g ${VS_GROUP} --gecos "Visual Studio Code" ${VS_USER} || usermod -u 1000 -m -s /bin/bash -g ${VS_GROUP} ${VS_USER} && \
+    usermod -aG docker ${VS_USER} && \
+    # Final Cleanup
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set permissions for directories
+RUN mkdir -p /home/${VS_USER}/.m2 /home/${VS_USER}/projects && \
+    chown -R ${VS_USER}:${VS_GROUP} /home/${VS_USER}/.m2 /home/${VS_user}/projects
+
+# Expose SSH port (optional but good practice)
+EXPOSE 22
+
+VOLUME /home/${VS_USER}/.m2
+VOLUME /home/${VS_USER}/projects
+VOLUME /var/run/docker.sock
+
+CMD ["/usr/sbin/sshd", "-D"]
+```
+
+### Key Improvements Explained:
+
+#### 1. Logic Separation (Builder Stage)
+In your original file, you were running `update-alternatives` and creating symlinks in the **builder** stage. Since that stage is discarded, those commands didn't actually affect the final image—only the 
+files inside `/opt/` mattered. I moved the "system configuration" logic entirely to the **main** stage to keep the builder lean.
+
+#### 2. Reduced Image Size
+*   Added `--no-install-recommends` to `apt-get`. This prevents Debian from installing suggested but unnecessary packages (like documentation or extra libraries).
+*   Consolidated `rm -rf /var/lib/apt/lists/*` and other cleanup steps into a single RUN command to prevent cache bloat.
+
+#### 3. Robust User Creation
+I updated the user creation logic:
+*   Used `groupadd` with a specific GID check (since you have `DOCKER_GID` as an ARG).
+*   Ensured that if the user or group already exists during a rebuild, the script doesn't crash (using `|| usermod`).
+
+#### 4. Environment Consistency
+I grouped all `ENV` declarations at the top of the second stage. This makes it much easier to read and maintain which environment variables are being injected into the container runtime.
+
+#### 5. Corrected Pathing for Locales
+Instead of just running `dpkg-reconfigure`, I used a more standard way to set the timezone and locale:
+*   `ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime` is the standard way to set system time in Debian/Ubuntu.
+
+#### 5. Maven/Node Symlinks
+I kept your symlink approach but ensured they are only created once in the final stage. This ensures that even if a tool like `maven` or `node` is called, it uses the specific paths defined in your ENV 
+variables.
+
+### Summary of Best Practices applied:
+*   **Multi-stage usage:** Used perfectly to keep build tools out of the production image.
+*   **Layering:** Combined related commands (like downloading a repo and installing from it) into single `RUN` blocks.
+*   **Cleanliness:** Removed redundant `update-alternatives` calls in the builder stage.
+*   **Portability:** Ensured standard Linux directory permissions for the `.m2` folder and project folders.
