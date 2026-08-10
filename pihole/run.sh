@@ -6,11 +6,12 @@ mkdir -p ~/etc-pihole
 mkdir -p ~/etc-dnsmasq.d
 docker run -dit \
   --name "pihole" \
-  -p 53:53 \
-  -p 53:53/udp \
-  -p 8888:80 \
-  -v ~/etc-pihole:/etc/pihole \
-  -v ~/etc-dnsmasq.d:/etc/dnsmasq.d \
-  -e TZ="America/Monterrey" \
-  -e WEBPASSWORD="*PiHole*01" \
+  --restart always\
+  --publish 53:53 \
+  --publish 53:53/udp \
+  --publish 8888:80 \
+  --volume ~/etc-pihole:/etc/pihole \
+  --volume ~/etc-dnsmasq.d:/etc/dnsmasq.d \
+  --env TZ="America/Monterrey" \
+  --env WEBPASSWORD="*PiHole*01" \
   pihole/pihole
