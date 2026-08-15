@@ -1,8 +1,0 @@
-read template from "/u01/app/oracle/middleware/wlserver/common/templates/wls/wls.jar";
-set JavaHome "/usr/lib/jvm/jdk-17.0.20-oracle-x64/";
-set ServerStartMode "dev";
-set AdminUserName "weblogic";
-set AdminPassword "*Comercio*01";
-write domain to "/u01/app/oracle/middleware/wlserver/domains/axdomain";
-close template;
-

@@ -12,6 +12,7 @@ RUN mkdir /opt/omada-controller-installer &&\
   tar -xvzf /tmp/${EAP_INSTALLER} --directory /opt/omada-controller-installer --strip-components=1 &&\
   rm -rf /tmp/${EAP_INSTALLER}
 
+# Install mongodb
 RUN apt-get update &&\
   apt-get -y install\
     openjdk-17-jre-headless\
@@ -92,8 +93,8 @@ COPY --from=installer /etc/apt/sources.list.d/mongodb-org-8.0.list    /etc/apt/s
 
 # Install binaries
 COPY ./entrypoint.sh /opt/tplink/EAPController/entrypoint.sh
-RUN apt-get update
-RUN apt-get -y install\
+RUN apt-get update &&\
+  apt-get -y install\
     curl\
     procps\
     gnupg\
@@ -103,21 +104,16 @@ RUN apt-get -y install\
   apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false &&\
   rm -rf /var/lib/apt/lists/* &&\
   addgroup --gid ${OMADA_GID} ${OMADA_GROUP} &&\
-  adduser ${OMADA_USER} --disabled-password --uid ${OMADA_UID} --gid ${OMADA_GID} --shell /bin/bash --no-create-home --quiet --gecos "" &&\
+  adduser ${OMADA_USER}\
+    --disabled-password\
+    --uid ${OMADA_UID}\
+    --gid ${OMADA_GID}\
+    --shell /bin/bash\
+    --no-create-home\
+    --quiet\
+    --gecos "" &&\
   chown $OMADA_USER:$OMADA_GROUP -R /opt/tplink/ &&\
   chmod +x /opt/tplink/EAPController/entrypoint.sh
-
-EXPOSE 8088
-EXPOSE 8043
-EXPOSE 8843
-EXPOSE 27001
-EXPOSE 29810
-EXPOSE 29811
-EXPOSE 29812
-EXPOSE 29813
-EXPOSE 29814
-EXPOSE 29815
-EXPOSE 29816
 
 WORKDIR /opt/tplink/EAPController/
 USER omada

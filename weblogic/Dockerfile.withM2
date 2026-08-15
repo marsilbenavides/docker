@@ -1,0 +1,117 @@
+FROM oraclelinux:9 AS build
+LABEL OWNER="OXXO"
+
+ARG WLS15_INSTALLER
+ARG RESPONSE_FILE
+ARG JDK_INSTALLER
+ARG MAVEN_INSTALLER
+
+ENV JAVA_HOME="/opt/jdk-21-slim"
+ENV M2_HOME="/opt/apache-maven"
+ENV ORACLE_HOME="/u01/app/oracle/middleware"
+ENV MW_HOME="$ORACLE_HOME"
+ENV WL_HOME="$ORACLE_HOME/wlserver"
+ENV WLS_HOME="$ORACLE_HOME/wlserver"
+ENV PATH="$PATH:${JAVA_HOME}/bin:${M2_HOME}/bin"
+
+WORKDIR /tmp
+COPY /bin/${WLS15_INSTALLER} ./${WLS15_INSTALLER}
+COPY /bin/${RESPONSE_FILE}   ./${RESPONSE_FILE}
+COPY /bin/${JDK_INSTALLER}   ./${JDK_INSTALLER}
+COPY /bin/${MAVEN_INSTALLER} ./${MAVEN_INSTALLER}
+
+# Extract the JDK installer, use jlink to create a custom runtime image 
+# (JRE) in the JAVA_HOME directory, and remove the installer file to save space.
+RUN tar -xvzf ${JDK_INSTALLER} &&\
+  $(ls -d ./*/ | grep jdk-21)/bin/jlink\
+     --module-path $(ls -d ./*/ | grep jdk-21)/jmods\
+     --verbose\
+     --compress 2\
+     --output ${JAVA_HOME}\
+     --add-modules ALL-MODULE-PATH &&\
+  rm -rf ./${JDK_INSTALLER}
+
+# Extract the Maven installer, move it to the /opt directory, and remove the installer file to save space.
+RUN tar -xvzf ${MAVEN_INSTALLER} &&\
+  rm -rf ./${MAVEN_INSTALLER} &&\
+  mv $(ls -d ./* | grep apache-maven-3) ${M2_HOME}
+
+# Create oracle user and groups
+RUN useradd -m oracle &&\
+  groupadd oinstall &&\
+  groupadd dba &&\
+  usermod -aG oinstall,dba oracle
+
+# Create the /etc/oraInst.loc file
+RUN tee /etc/oraInst.loc > /dev/null <<EOF
+inventory_loc=/u01/app/oraInventory
+inst_group=oinstall
+EOF
+RUN mkdir -p /u01/app/oraInventory &&\
+  chown oracle:oinstall /u01/ -R &&\
+  chown oracle:oinstall /etc/oraInst.loc
+
+# Run the weblogic installer
+USER oracle
+RUN java -jar ./${WLS15_INSTALLER}\
+    -silent\
+    -ignoreSysPrereqs\
+    -responseFile /tmp/${RESPONSE_FILE}\
+    -invPtrLoc /etc/oraInst.loc
+
+# Configure the Maven repository and install the WebLogic Maven plugin
+WORKDIR $ORACLE_HOME
+RUN (\
+  ./wlserver/server/bin/setWLSEnv.sh &&\
+  mvn install:install-file\
+    -DpomFile=./oracle_common/plugins/maven/com/oracle/maven/oracle-maven-sync/15.1.1/oracle-maven-sync-15.1.1.pom\
+    -Dfile=./oracle_common/plugins/maven/com/oracle/maven/oracle-maven-sync/15.1.1/oracle-maven-sync-15.1.1.jar &&\
+  mvn com.oracle.maven:oracle-maven-sync:push -DoracleHome=$ORACLE_HOME\
+)
+RUN mvn help:describe -DgroupId=com.oracle.weblogic -DartifactId=weblogic-maven-plugin -Dversion=15.1.1-0-0
+
+# Create a dummy Maven project to ensure that the WebLogic Maven plugin is installed correctly and
+# to pre-populate the Maven repository with the WebLogic artifacts. The build will fail,
+# but the Maven repository will be populated.
+WORKDIR /tmp
+RUN tee ./pom.xml > /dev/null <<EOF
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+            http://maven.apache.org/POM/4.0.0
+            http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.femsa.oxxo.axxon</groupId>
+    <artifactId>axxon-web-parent-dummy</artifactId>
+    <version>SNAPSHOT</version>
+    <packaging>pom</packaging>
+</project>
+EOF
+RUN mvn com.oracle.weblogic:weblogic-maven-plugin:deploy || true
+
+# Build the main image
+FROM oraclelinux:9-slim AS main
+LABEL OWNER="OXXO"
+ENV JAVA_HOME="/opt/jdk-21-slim"
+ENV M2_HOME="/opt/apache-maven"
+ENV ORACLE_HOME="/u01/app/oracle/middleware"
+ENV MW_HOME="$ORACLE_HOME"
+ENV WL_HOME="$ORACLE_HOME/wlserver"
+ENV WLS_HOME="$ORACLE_HOME/wlserver"
+ENV PATH="$PATH:${JAVA_HOME}/bin:${M2_HOME}/bin"
+
+# Create oracle user and groups
+RUN useradd -m oracle --shell /bin/bash &&\
+  groupadd oinstall &&\
+  groupadd dba &&\
+  usermod -aG oinstall,dba oracle
+
+# Copy the JDK, Oracle WebLogic and configured Maven installations from the build stage
+COPY --from=build /opt /opt
+COPY --from=build /u01 /u01
+COPY --from=build /home/oracle /home/oracle
+
+# Set the workspace for the oracle user
+USER oracle
+VOLUME /home/oracle/workspace
+WORKDIR /home/oracle/workspace

@@ -5,10 +5,11 @@ ARG WLS15_INSTALLER
 ARG RESPONSE_FILE
 ARG JDK_INSTALLER
 
-ENV JAVA_HOME="/opt/jdk-17-slim"
-ENV MW_HOME="/u01/app/oracle/middleware"
-ENV WL_HOME="$MW_HOME/wlserver"
-ENV WLS_HOME="$MW_HOME/wlserver"
+ENV JAVA_HOME="/opt/jdk-21-slim"
+ENV ORACLE_HOME="/u01/app/oracle/middleware"
+ENV MW_HOME="$ORACLE_HOME"
+ENV WL_HOME="$ORACLE_HOME/wlserver"
+ENV WLS_HOME="$ORACLE_HOME/wlserver"
 ENV PATH="$PATH:${JAVA_HOME}/bin"
 
 WORKDIR /tmp
@@ -19,8 +20,8 @@ COPY /bin/${JDK_INSTALLER}   ./${JDK_INSTALLER}
 # Extract the JDK installer, use jlink to create a custom runtime image 
 # (JRE) in the JAVA_HOME directory, and remove the installer file to save space.
 RUN tar -xvzf ${JDK_INSTALLER} &&\
-  $(ls -d /tmp/*/ | grep jdk-17)/bin/jlink\
-     --module-path $(ls -d /tmp/*/ | grep jdk-17)/jmods\
+  $(ls -d ./*/ | grep jdk-21)/bin/jlink\
+     --module-path $(ls -d ./*/ | grep jdk-21)/jmods\
      --verbose\
      --compress 2\
      --output ${JAVA_HOME}\
@@ -42,58 +43,36 @@ RUN mkdir -p /u01/app/oraInventory &&\
   chown oracle:oinstall /u01/ -R &&\
   chown oracle:oinstall /etc/oraInst.loc
 
-# Run the installer
+# Run the weblogic installer
 USER oracle
 RUN java -jar ./${WLS15_INSTALLER}\
     -silent\
+    -ignoreSysPrereqs\
     -responseFile /tmp/${RESPONSE_FILE}\
     -invPtrLoc /etc/oraInst.loc
-
-# Create the createDomain.responseFile
-RUN mkdir -p /u01/app/oracle/middleware/wlserver/domains &&\
-  tee /u01/app/oracle/middleware/wlserver/domains/createAxDomain.responseFile > /dev/null <<EOF
-read template from "/u01/app/oracle/middleware/wlserver/common/templates/wls/wls.jar";
-set JavaHome "${JAVA_HOME}";
-set ServerStartMode "dev";
-
-find Server "AdminServer" as AdminServer;
-set AdminServer.ListenAddress "";
-set AdminServer.ListenPort "7001";
-
-find User "weblogic" as weblogic;
-set weblogic.password "Comercio01";
-
-write domain to "/u01/app/oracle/middleware/wlserver/domains/axdomain";
-close template;
-EOF
-
-USER oracle
-RUN (\
-  . $WL_HOME/server/bin/setWLSEnv.sh &&\
-  $MW_HOME/oracle_common/common/bin/config.sh\
-    -mode=silent\
-    -log=/u01/app/oracle/middleware/wlserver/domains/createAxDomain.log\
-    -silent_script=/u01/app/oracle/middleware/wlserver/domains/createAxDomain.responseFile ||\
-  exit 0\
-)
 
 # Build the main image
 FROM oraclelinux:9-slim AS main
 LABEL OWNER="OXXO"
-ENV JAVA_HOME="/opt/jdk-17-slim"
-ENV MW_HOME="/u01/app/oracle/middleware"
-ENV WL_HOME="$MW_HOME/wlserver"
-ENV WLS_HOME="$MW_HOME/wlserver"
+ENV JAVA_HOME="/opt/jdk-21-slim"
+ENV ORACLE_HOME="/u01/app/oracle/middleware"
+ENV MW_HOME="$ORACLE_HOME"
+ENV WL_HOME="$ORACLE_HOME/wlserver"
+ENV WLS_HOME="$ORACLE_HOME/wlserver"
 ENV PATH="$PATH:${JAVA_HOME}/bin"
-COPY --from=build /opt /opt
-COPY --from=build /u01 /u01
 
 # Create oracle user and groups
-RUN useradd -m oracle --shell /bin/sh &&\
+RUN useradd -m oracle --shell /bin/bash &&\
   groupadd oinstall &&\
   groupadd dba &&\
   usermod -aG oinstall,dba oracle
 
-WORKDIR $WL_HOME
-EXPOSE 7001
-CMD ["/u01/app/oracle/middleware/wlserver/domains/axdomain/startWebLogic.sh"]
+# Copy the JDK and Oracle WebLogic installations from the build stage
+COPY --from=build /opt /opt
+COPY --from=build /u01 /u01
+COPY --from=build /home/oracle /home/oracle
+
+# Set the workspace for the oracle user
+USER oracle
+VOLUME /home/oracle/workspace
+WORKDIR /home/oracle/workspace
