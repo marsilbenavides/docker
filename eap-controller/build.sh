@@ -2,7 +2,7 @@
 EAP_CONTROLLER_VERSION="6.2.14.11"
 
 docker stop "eap-controller"
-docker rm "eap-controller"
+docker rm -f "eap-controller"
 docker rmi "eap-controller-img:${EAP_CONTROLLER_VERSION}"
 docker build .\
   -f ./Dockerfile\
