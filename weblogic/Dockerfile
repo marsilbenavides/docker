@@ -21,11 +21,11 @@ COPY /bin/${JDK_INSTALLER}   ./${JDK_INSTALLER}
 # (JRE) in the JAVA_HOME directory, and remove the installer file to save space.
 RUN tar -xvzf ${JDK_INSTALLER} &&\
   $(ls -d ./*/ | grep jdk-21)/bin/jlink\
-     --module-path $(ls -d ./*/ | grep jdk-21)/jmods\
-     --verbose\
-     --compress 2\
-     --output ${JAVA_HOME}\
-     --add-modules ALL-MODULE-PATH &&\
+    --module-path $(ls -d ./*/ | grep jdk-21)/jmods\
+    --verbose\
+    --compress=zip-9\
+    --output ${JAVA_HOME}\
+    --add-modules ALL-MODULE-PATH &&\
   rm -rf ./${JDK_INSTALLER}
 
 # Create oracle user and groups
