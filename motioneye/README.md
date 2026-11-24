@@ -31,20 +31,33 @@ The run script automates the deployment with the following specifications:
 - Git installed.
 
 ### Instructions
+
+There are two ways to run the container:
+
+#### Method 1: Using the provided scripts (Recommended)
+These scripts automatically handle repository management and local directory setup.
 1. **Build the Image**:
-   Run the build script to clone the repository and build the image:
    ```bash
    chmod +x build.sh
    ./build.sh
    ```
-
 2. **Run the Container**:
-   Run the script to deploy the container:
    ```bash
    chmod +x run.sh
    ./run.sh
    ```
 
-3. **Access the Web UI**:
-   Open your browser and navigate to:
-   `http://<your-host-ip>:8765`
+#### Method 2: Using Docker Compose
+Use this method if you prefer standard Docker Compose commands (requires the image to be built first via `./build.sh`).
+1. **Build the Image**:
+   ```bash
+   ./build.sh
+   ```
+2. **Start the Container**:
+   ```bash
+   docker compose up -d
+   ```
+
+#### Access the Web UI
+Open your browser and navigate to:
+`http://<your-host-ip>:8765`
