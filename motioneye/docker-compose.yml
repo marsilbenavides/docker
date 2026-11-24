@@ -2,14 +2,14 @@ version: '3.8'
 
 services:
   motioneye:
-    image: motioneye-img
-    container_name: motioneye
+    image: ${MOTIONEYE_IMAGE_NAME}
+    container_name: ${MOTIONEYE_CONTAINER_NAME}
     ports:
       - "8765:8765"
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - /home/user/motioneye/config:/etc/motioneye
-      - /home/user/motioneye/videos:/var/lib/motioneye
+      - ${MOTIONEYE_CONFIG_DIR}:/etc/motioneye
+      - ${MOTIONEYE_VIDEO_DIR}:/var/lib/motioneye
     restart: always
     stdin_open: true
     tty: true
