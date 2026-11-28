@@ -1,4 +1,4 @@
-FROM debian:bookworm-slim AS installer
+FROM debian:trixie-slim AS installer
 ARG EAP_INSTALLER
 ARG JDK17_INSTALLER
 ENV DEBIAN_FRONTEND=noninteractive
@@ -9,7 +9,9 @@ ENV JRE_HOME=${JAVA_HOME}
 # Uncompress omada controller
 COPY ./bin/${EAP_INSTALLER} /tmp/${EAP_INSTALLER}
 RUN mkdir /opt/omada-controller-installer &&\
-  tar -xvzf /tmp/${EAP_INSTALLER} --directory /opt/omada-controller-installer --strip-components=1 &&\
+  tar -xvzf /tmp/${EAP_INSTALLER} \
+    --directory /opt/omada-controller-installer \
+    --strip-components=1 &&\
   rm -rf /tmp/${EAP_INSTALLER}
 
 # Install mongodb
@@ -66,7 +68,7 @@ RUN mkdir -p /tmp/jdk-17-full &&\
      --output ${JAVA_HOME}\
      --add-modules ALL-MODULE-PATH
 
-FROM debian:bookworm-slim AS main
+FROM debian:trixie-slim AS main
 ARG OMADA_UID
 ARG OMADA_GID
 ENV DEBIAN_FRONTEND=noninteractive
