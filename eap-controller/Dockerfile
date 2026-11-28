@@ -1,12 +1,19 @@
+# --- Stage 1: Installer ---
+# This stage handles the extraction, installation, and preparation of the Omada application files.
 FROM debian:trixie-slim AS installer
+
+# Build-time arguments for the installers
 ARG EAP_INSTALLER
 ARG JDK17_INSTALLER
+
+# Set basic environment variables for the build process
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=America/Mexico_City
 ENV JAVA_HOME=/opt/jdk-17
 ENV JRE_HOME=${JAVA_HOME}
 
-# Uncompress omada controller
+# Uncompress the Omada network application installer
+# We extract it to a specific directory and strip the first component of the path
 COPY ./bin/${EAP_INSTALLER} /tmp/${EAP_INSTALLER}
 RUN mkdir /opt/omada-controller-installer &&\
   tar -xvzf /tmp/${EAP_INSTALLER} \
@@ -14,7 +21,8 @@ RUN mkdir /opt/omada-controller-installer &&\
     --strip-components=1 &&\
   rm -rf /tmp/${EAP_INSTALLER}
 
-# Install mongodb
+# Install MongoDB and its required system dependencies
+# This includes both the repo keys and the mongodb-org package
 RUN apt-get update &&\
   apt-get -y install\
     jsvc\
@@ -38,7 +46,9 @@ RUN apt-get update &&\
   apt-get update &&\
   apt-get -y install mongodb-org
 
-# Repair install.sh and execute it
+# Modify the provided install.sh script and run it
+# We use sed to remove the parameter check and root permission check sections
+# because they interfere with the automated installation inside the container.
 WORKDIR /opt/omada-controller-installer
 RUN paramCheckStart=$(grep -n "# parameter check" ./install.sh | cut -d: -f1) &&\
   linesToCut=$(tail -n +$paramCheckStart ./install.sh | grep -n "# root permission check" | cut -d: -f1) &&\
@@ -47,12 +57,14 @@ RUN paramCheckStart=$(grep -n "# parameter check" ./install.sh | cut -d: -f1) &&
   ./install.sh -y &&\
   rm -rf /opt/omada-controller-installer
 
-# Backup data
+# Create a compressed backup of the initial database state
+# This is used to restore the database on first startup.
 WORKDIR /opt/tplink/EAPController
 RUN tar -czf ./data.tar.gz ./data &&\
   rm -rf ./data/*
 
-# Uncompress jdk to be used by main image
+# Create a custom, minimal JDK 17 runtime using jlink
+# This reduces the image footprint by only including necessary modules.
 COPY ./bin/${JDK17_INSTALLER} /tmp/${JDK17_INSTALLER}
 RUN mkdir -p /tmp/jdk-17-full &&\
   tar -xvzf /tmp/${JDK17_INSTALLER} \
@@ -69,9 +81,15 @@ RUN mkdir -p /tmp/jdk-17-full &&\
      --output ${JAVA_HOME}\
      --add-modules ALL-MODULE-PATH
 
+# --- Stage 2: Main Runtime ---
+# This stage produces the final production image.
 FROM debian:trixie-slim AS main
+
+# Build-time arguments for user identity
 ARG OMADA_UID
 ARG OMADA_GID
+
+# Configure the runtime environment
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=America/Mexico_City
 ENV JAVA_HOME=/opt/jdk-17
@@ -82,19 +100,22 @@ ENV OMADA_GROUP=omadagrp
 ENV OMADA_UID=1000
 ENV OMADA_GID=1000
 
-# Restore tplink
+# Define persistent storage volumes
 VOLUME [ "/opt/tplink/EAPController/data" ]
 VOLUME [ "/opt/tplink/EAPController/logs" ]
+
+# Copy the prepared artifacts from the installer stage
 COPY --from=installer ${JAVA_HOME}              ${JAVA_HOME}
 COPY --from=installer /opt/tplink/              /opt/tplink
 COPY --from=installer /usr/share/java/          /usr/share/java/
 COPY --from=installer /usr/share/maven-repo/    /usr/share/maven-repo/
 
-# Copy mongo list
+# Copy MongoDB configuration files
 COPY --from=installer /usr/share/keyrings/mongodb-server-8.0.gpg      /usr/share/keyrings/
 COPY --from=installer /etc/apt/sources.list.d/mongodb-org-8.0.list    /etc/apt/sources.list.d/mongodb-org-8.0.list
 
-# Install binaries
+# Install final system binaries and set up the application user
+# We also ensure the correct group/user ownership on the application directory.
 COPY ./entrypoint.sh /opt/tplink/EAPController/entrypoint.sh
 RUN apt-get update &&\
   apt-get -y install\
@@ -118,6 +139,10 @@ RUN apt-get update &&\
   chown $OMADA_USER:$OMADA_GROUP -R /opt/tplink/ &&\
   chmod +x /opt/tplink/EAPController/entrypoint.sh
 
+# Set the final working directory and switch to the non-root user
 WORKDIR /opt/tplink/EAPController/
 USER omada
+
+# Start the application via the entrypoint script
 CMD ["./entrypoint.sh"]
+

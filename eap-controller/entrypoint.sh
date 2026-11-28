@@ -1,8 +1,12 @@
 #!/bin/sh
-db_backup="$(pwd)/data.tar.gz";
-data_db_filename="$(pwd)/data/db";
 
-# If database doesn't exist, create it
+# Define paths for the database backup and the target database file
+db_backup="$(pwd)/data.tar.gz"
+data_db_filename="$(pwd)/data/db"
+
+# Initialize the database:
+# If the database directory does not exist, extract the bundled database backup.
+# This ensures that the application has a valid initial state on first boot.
 if [ ! -e "$data_db_filename" ]; then
   echo "Extracting database backup..."
   tar -xzf "${db_backup}"
@@ -10,7 +14,16 @@ if [ ! -e "$data_db_filename" ]; then
   echo "Restore complete."
 fi
 
+# Move to the library directory where the application binaries reside
 cd /opt/tplink/EAPController/lib/
+
+# Launch the Omada application with the following JVM configuration:
+# - Xms/Xmx: Set heap size between 1GB and 2GB
+# - HeapFreeRatio: Optimize how the JVM manages free memory
+# - HeapDump: Ensure memory dumps are captured on OutOfMemory errors for debugging
+# - Headless: Run without a graphical user interface
+# - vfork: Optimization for process launching in specific environments
+# - cp: Define the classpath including common daemon jars, application libraries, and properties
 java -server\
   -Xms1024M\
   -Xmx2048M\
