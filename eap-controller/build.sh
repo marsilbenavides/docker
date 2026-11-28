@@ -1,5 +1,5 @@
 #!/bin/sh
-EAP_CONTROLLER_VERSION="6.3.0.112"
+EAP_CONTROLLER_VERSION="6.2.14.11"
 
 docker stop "eap-controller"
 docker rm -f "eap-controller"
