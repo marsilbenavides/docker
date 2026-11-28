@@ -55,7 +55,9 @@ RUN tar -czf ./data.tar.gz ./data &&\
 # Uncompress jdk to be used by main image
 COPY ./bin/${JDK17_INSTALLER} /tmp/${JDK17_INSTALLER}
 RUN mkdir -p /tmp/jdk-17-full &&\
-  tar -xvzf /tmp/${JDK17_INSTALLER} --directory /tmp/jdk-17-full --strip-components=1 &&\
+  tar -xvzf /tmp/${JDK17_INSTALLER} \
+    --directory /tmp/jdk-17-full \
+    --strip-components=1 &&\
   rm -rf /tmp/${JDK17_INSTALLER} &&\
   /tmp/jdk-17-full/bin/jlink\
      --module-path /tmp/jdk-17-full/jmods\
