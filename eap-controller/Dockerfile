@@ -17,7 +17,6 @@ RUN mkdir /opt/omada-controller-installer &&\
 # Install mongodb
 RUN apt-get update &&\
   apt-get -y install\
-    openjdk-17-jre-headless\
     jsvc\
     curl\
     procps\
